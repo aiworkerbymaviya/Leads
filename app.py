@@ -1,3 +1,4 @@
+import os
 import osmium
 import time
 from collections import defaultdict
