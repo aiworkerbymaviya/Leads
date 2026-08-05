@@ -5,14 +5,14 @@ on:
 
 jobs:
   run:
-
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
@@ -21,11 +21,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install osmium
 
-      - name: Download OSM
+      - name: Download India OSM
         run: |
-          wget -O western-zone.osm.pbf \
-          https://download.geofabrik.de/asia/india/western-zone-latest.osm.pbf
+          wget -O india.osm.pbf \
+            https://download.geofabrik.de/asia/india-latest.osm.pbf
 
-      - name: Run
+      - name: Verify Download
+        run: |
+          ls -lh india.osm.pbf
+          file india.osm.pbf
+
+      - name: Run LeadFinder
         run: |
           python app.py
