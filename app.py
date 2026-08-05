@@ -1,48 +1,53 @@
 import osmium
+from collections import defaultdict
 
-PBF_FILE = "western-zone.osm.pbf"
+PBF_FILE = "india.osm.pbf"
+
+TARGETS = {
+    "restaurant",
+    "fast_food",
+    "cafe"
+}
+
+stats = defaultdict(int)
 
 
 class BusinessHandler(osmium.SimpleHandler):
-    def __init__(self):
-        super().__init__()
-        self.count = 0
 
     def node(self, n):
+
         tags = n.tags
 
-        if "amenity" not in tags:
+        amenity = tags.get("amenity")
+
+        if amenity not in TARGETS:
             return
 
-        amenity = tags["amenity"]
+        stats["Restaurants"] += 1
 
-        if amenity not in [
-            "restaurant",
-            "cafe",
-            "fast_food",
-            "hotel",
-            "clinic",
-            "hospital",
-            "pharmacy",
-            "bank",
-            "school"
-        ]:
-            return
+        phone = tags.get("phone") or tags.get("contact:phone")
+        website = tags.get("website") or tags.get("contact:website")
 
-        self.count += 1
+        if phone:
+            stats["With Phone"] += 1
 
-        print("=" * 50)
-        print("Business :", tags.get("name", "N/A"))
-        print("Category :", amenity)
-        print("Phone    :", tags.get("phone", "N/A"))
-        print("Website  :", tags.get("website", "N/A"))
-        print("City     :", tags.get("addr:city", "N/A"))
-        print("Lat      :", n.location.lat)
-        print("Lon      :", n.location.lon)
+        if website:
+            stats["With Website"] += 1
 
-        if self.count >= 10:
-            raise SystemExit
+        if phone and not website:
+            stats["Phone + No Website"] += 1
 
+
+print("Scanning India OSM...")
 
 handler = BusinessHandler()
-handler.apply_file(PBF_FILE, locations=True)
+handler.apply_file(PBF_FILE, locations=False)
+
+print("\n========== RESULT ==========\n")
+
+print(f"Restaurants          : {stats['Restaurants']:,}")
+print(f"With Phone           : {stats['With Phone']:,}")
+print(f"With Website         : {stats['With Website']:,}")
+print(f"Phone + No Website   : {stats['Phone + No Website']:,}")
+
+print("\n============================")
