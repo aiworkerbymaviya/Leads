@@ -3,7 +3,7 @@ import time
 from collections import defaultdict
 
 # Change according to workflow
-PBF_FILE = "western-zone.osm.pbf"
+PBF_FILE = os.getenv("PBF_FILE")
 
 TARGETS = {
     "restaurant",
