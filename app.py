@@ -10,9 +10,15 @@ PBF_FILE = os.getenv("PBF_FILE")
 MONGODB_URI = os.getenv("MONGODB_URI")
 
 # Setup MongoDB Connection
-client = MongoClient(MONGODB_URI)
-db = client["LeadFinder"]  # Database name
-collection = db["leads"]   # Collection name
+try:
+    client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+    db = client["LeadFinder"]
+    collection = db["leads"]
+    # Test connection
+    client.admin.command('ping')
+    print("✅ Connected to MongoDB successfully!")
+except Exception as e:
+    print(f"❌ MongoDB Connection Error: {e}")
 
 TARGETS = {
     "restaurant",
@@ -22,14 +28,11 @@ TARGETS = {
 
 stats = defaultdict(int)
 
-# Phone Normalization Function
 def normalize_phone(phone_str):
     if not phone_str:
         return None
-    # Extract only digits
     digits = re.sub(r"\D", "", phone_str)
     
-    # Simple Indian Number Normalization (Adjust logic if global needed)
     if len(digits) == 10:
         return "91" + digits
     elif len(digits) == 12 and digits.startswith("91"):
@@ -45,15 +48,12 @@ class BusinessHandler(osmium.SimpleHandler):
         self.nodes_scanned = 0
         self.start = time.time()
         self.buffer = []
-        self.seen_phones = set()  # Duplicate Skip in Same Run
-        
-        # Rough total nodes per zone for ETA calculation (~100M average per zone)
+        self.seen_phones = set()
         self.estimated_total_nodes = 100_000_000 
 
     def node(self, n):
         self.nodes_scanned += 1
 
-        # Live Progress + Speed + ETA Calculation
         if self.nodes_scanned % 500000 == 0:
             elapsed = time.time() - self.start
             speed = self.nodes_scanned / elapsed if elapsed > 0 else 0
@@ -77,11 +77,9 @@ class BusinessHandler(osmium.SimpleHandler):
         raw_phone = tags.get("phone") or tags.get("contact:phone")
         website = tags.get("website") or tags.get("contact:website")
 
-        # FILTER: Website Skip & Phone Required
         if raw_phone and not website:
             phone = normalize_phone(raw_phone)
             
-            # Skip invalid phone or Exact Duplicate (same run)
             if not phone or phone in self.seen_phones:
                 stats["Duplicates/Invalid Skipped"] += 1
                 return
@@ -89,11 +87,16 @@ class BusinessHandler(osmium.SimpleHandler):
             self.seen_phones.add(phone)
             stats["Target Leads"] += 1
 
-            # Safely extract Lat/Lon
-            lat = n.location.lat() if n.location.valid() else None
-            lon = n.location.lon() if n.location.valid() else None
+            # Safely get coordinates
+            lat = None
+            lon = None
+            try:
+                if n.location.valid():
+                    lat = n.location.lat()
+                    lon = n.location.lon()
+            except Exception:
+                pass
 
-            # Schema Setup
             lead = {
                 "name": tags.get("name", "N/A"),
                 "phone": phone,
@@ -104,16 +107,20 @@ class BusinessHandler(osmium.SimpleHandler):
 
             self.buffer.append(lead)
 
-            # Batch Size 1000 Bulk Insert
             if len(self.buffer) >= 1000:
-                collection.insert_many(self.buffer)
+                self.save_buffer()
+
+    def save_buffer(self):
+        if self.buffer:
+            try:
+                collection.insert_many(self.buffer, ordered=False)
+            except Exception as e:
+                print(f"⚠️ Batch insert error: {e}")
+            finally:
                 self.buffer.clear()
 
     def flush(self):
-        """Flush remaining buffer items into MongoDB."""
-        if self.buffer:
-            collection.insert_many(self.buffer)
-            self.buffer.clear()
+        self.save_buffer()
 
 
 print("=" * 60)
@@ -124,7 +131,9 @@ print("🔍 Filtering Leads (Phone = YES | Website = NO)...")
 print("=" * 60)
 
 handler = BusinessHandler()
-handler.apply_file(PBF_FILE, locations=True)
+
+# IMPORTANT FIX: Use 'sparse_mem_array' for memory-efficient location lookup
+handler.apply_file(PBF_FILE, locations='sparse_mem_array')
 handler.flush()
 
 elapsed = time.time() - handler.start
