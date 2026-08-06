@@ -37,18 +37,18 @@ jobs:
       - name: 📦 Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install osmium pymongo
+          pip install osmium pymongo certifi
 
       - name: 🌍 Download ${{ matrix.zone }}
         run: |
           wget -O ${{ matrix.zone }}.osm.pbf ${{ matrix.url }}
 
-      - name: 📂 Verify
+      - name: 📂 Verify File
         run: |
           ls -lh ${{ matrix.zone }}.osm.pbf
           file ${{ matrix.zone }}.osm.pbf
 
-      - name: 🚀 Run Parser
+      - name: 🚀 Run LeadFinder Parser
         env:
           PBF_FILE: ${{ matrix.zone }}.osm.pbf
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
