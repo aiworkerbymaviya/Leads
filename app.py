@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import certifi
 import osmium
 from collections import defaultdict
 from pymongo import MongoClient
@@ -9,16 +10,33 @@ from pymongo import MongoClient
 PBF_FILE = os.getenv("PBF_FILE")
 MONGODB_URI = os.getenv("MONGODB_URI")
 
-# Setup MongoDB Connection
+# 1️⃣ STEP 1: Pehle Database Connection Test Karo
+print("=" * 60)
+print("🔌 Testing MongoDB Atlas Connection...")
+print("=" * 60)
+
+db = None
+collection = None
+
 try:
-    client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+    client = MongoClient(
+        MONGODB_URI,
+        tlsCAFile=certifi.where(),
+        tlsAllowInvalidCertificates=True,  # Bypasses SSL Handshake Issues
+        serverSelectionTimeoutMS=10000,
+        connectTimeoutMS=10000,
+        socketTimeoutMS=20000
+    )
+    # Ping database to confirm connection
+    client.admin.command('ping')
     db = client["LeadFinder"]
     collection = db["leads"]
-    # Test connection
-    client.admin.command('ping')
-    print("✅ Connected to MongoDB successfully!")
+    print("✅ MongoDB Connection Successful! Proceeding with scan...\n")
 except Exception as e:
-    print(f"❌ MongoDB Connection Error: {e}")
+    print(f"❌ CRITICAL ERROR: Could not connect to MongoDB Atlas!")
+    print(f"Detail: {e}")
+    print("Please check your MONGODB_URI secret and Network Access (0.0.0.0/0).\n")
+    exit(1)
 
 TARGETS = {
     "restaurant",
@@ -48,12 +66,13 @@ class BusinessHandler(osmium.SimpleHandler):
         self.nodes_scanned = 0
         self.start = time.time()
         self.buffer = []
-        self.seen_phones = set()
+        self.seen_leads = set()  # Key: Phone + Name (Option A)
         self.estimated_total_nodes = 100_000_000 
 
     def node(self, n):
         self.nodes_scanned += 1
 
+        # Live Progress Updates
         if self.nodes_scanned % 500000 == 0:
             elapsed = time.time() - self.start
             speed = self.nodes_scanned / elapsed if elapsed > 0 else 0
@@ -77,19 +96,28 @@ class BusinessHandler(osmium.SimpleHandler):
         raw_phone = tags.get("phone") or tags.get("contact:phone")
         website = tags.get("website") or tags.get("contact:website")
 
+        # FILTER: Has Phone AND NO Website
         if raw_phone and not website:
             phone = normalize_phone(raw_phone)
+            name = tags.get("name", "N/A")
             
-            if not phone or phone in self.seen_phones:
-                stats["Duplicates/Invalid Skipped"] += 1
+            if not phone:
+                stats["Invalid Phone Skipped"] += 1
                 return
 
-            self.seen_phones.add(phone)
+            # OPTION A: Unique Key = Phone + Name
+            # Same phone number for different branches will be SAVED.
+            unique_key = f"{phone}_{name.lower().strip()}"
+
+            if unique_key in self.seen_leads:
+                stats["Duplicates Skipped"] += 1
+                return
+
+            self.seen_leads.add(unique_key)
             stats["Target Leads"] += 1
 
-            # Safely get coordinates
-            lat = None
-            lon = None
+            # Extract Coordinates safely
+            lat, lon = None, None
             try:
                 if n.location.valid():
                     lat = n.location.lat()
@@ -98,7 +126,7 @@ class BusinessHandler(osmium.SimpleHandler):
                 pass
 
             lead = {
-                "name": tags.get("name", "N/A"),
+                "name": name,
                 "phone": phone,
                 "lat": lat,
                 "lon": lon,
@@ -107,17 +135,21 @@ class BusinessHandler(osmium.SimpleHandler):
 
             self.buffer.append(lead)
 
+            # Batch Bulk Insert (1,000 items)
             if len(self.buffer) >= 1000:
                 self.save_buffer()
 
     def save_buffer(self):
-        if self.buffer:
-            try:
-                collection.insert_many(self.buffer, ordered=False)
-            except Exception as e:
-                print(f"⚠️ Batch insert error: {e}")
-            finally:
-                self.buffer.clear()
+        if self.buffer and collection is not None:
+            for attempt in range(3):
+                try:
+                    collection.insert_many(self.buffer, ordered=False)
+                    break
+                except Exception as e:
+                    if attempt == 2:
+                        print(f"⚠️ Batch insert failed after 3 attempts: {e}")
+                    time.sleep(1)
+            self.buffer.clear()
 
     def flush(self):
         self.save_buffer()
@@ -131,8 +163,6 @@ print("🔍 Filtering Leads (Phone = YES | Website = NO)...")
 print("=" * 60)
 
 handler = BusinessHandler()
-
-# IMPORTANT FIX: Use 'sparse_mem_array' for memory-efficient location lookup
 handler.apply_file(PBF_FILE, locations='sparse_mem_array')
 handler.flush()
 
@@ -142,7 +172,7 @@ print("\n" + "=" * 60)
 print("✅ SCAN & SAVED TO MONGO COMPLETED")
 print("=" * 60)
 print(f"🎯 Total Leads Saved  : {stats['Target Leads']:,}")
-print(f"⚠️ Duplicates Skipped : {stats['Duplicates/Invalid Skipped']:,}")
+print(f"⚠️ Duplicates Skipped : {stats['Duplicates Skipped']:,}")
 print(f"📦 Total Nodes Scanned: {handler.nodes_scanned:,}")
 print(f"⏱ Total Time Taken   : {elapsed:.2f} seconds")
 print("=" * 60)
