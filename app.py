@@ -38,10 +38,45 @@ except Exception as e:
     print("Please check your MONGODB_URI secret and Network Access (0.0.0.0/0).\n")
     exit(1)
 
+# 🎯 NEW MULTI-CATEGORY TARGETS (Removed Old Restro/Cafe)
 TARGETS = {
-    "restaurant",
-    "cafe",
-    "fast_food"
+    # 1. Healthcare & Clinics
+    ("amenity", "clinic"),
+    ("amenity", "dentist"),
+    ("amenity", "doctors"),
+    ("amenity", "hospital"),
+    
+    # 2. Hospitality & Stay
+    ("tourism", "hotel"),
+    ("tourism", "guest_house"),
+    ("tourism", "resort"),
+    ("tourism", "hostel"),
+    
+    # 3. Real Estate & Design
+    ("office", "real_estate"),
+    ("office", "interior_design"),
+    ("office", "architect"),
+    
+    # 4. Salons, Spas & Gyms
+    ("shop", "beauty"),
+    ("shop", "hairdresser"),
+    ("leisure", "spa"),
+    ("leisure", "fitness_centre"),
+    ("leisure", "sports_centre"),
+    
+    # 5. Automotive & Garages
+    ("shop", "car_repair"),
+    ("shop", "car_parts"),
+    ("shop", "motorcycle_repair"),
+    
+    # 6. Events & Photographers
+    ("craft", "photographer"),
+    ("shop", "photo"),
+    
+    # 7. Education & Coaching
+    ("amenity", "coaching"),
+    ("amenity", "school"),
+    ("amenity", "college")
 }
 
 stats = defaultdict(int)
@@ -88,9 +123,15 @@ class BusinessHandler(osmium.SimpleHandler):
             print("=" * 60)
 
         tags = n.tags
-        amenity = tags.get("amenity")
+        
+        # Check matching target category
+        matched_category = None
+        for key, val in TARGETS:
+            if tags.get(key) == val:
+                matched_category = val
+                break
 
-        if amenity not in TARGETS:
+        if not matched_category:
             return
 
         raw_phone = tags.get("phone") or tags.get("contact:phone")
@@ -106,7 +147,6 @@ class BusinessHandler(osmium.SimpleHandler):
                 return
 
             # OPTION A: Unique Key = Phone + Name
-            # Same phone number for different branches will be SAVED.
             unique_key = f"{phone}_{name.lower().strip()}"
 
             if unique_key in self.seen_leads:
@@ -130,7 +170,7 @@ class BusinessHandler(osmium.SimpleHandler):
                 "phone": phone,
                 "lat": lat,
                 "lon": lon,
-                "category": amenity
+                "category": matched_category
             }
 
             self.buffer.append(lead)
