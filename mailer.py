@@ -7,7 +7,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 # ==================== CONFIGURATION ====================
-SENDER_EMAIL = os.getenv("SENDER_EMAIL", "maviyaattar4@gmail.com")
+# Hardcoded Sender Email as requested
+SENDER_EMAIL = "maviyaattar4@gmail.com"
 SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
 
 SENDER_NAME = "Maviya Attar"
@@ -144,8 +145,8 @@ def build_b2b_sales_email(client_name="there", is_test=False):
 def send_b2b_campaign(csv_file="leads.csv"):
     clean_password = SENDER_PASSWORD.replace(" ", "").strip() if SENDER_PASSWORD else ""
 
-    if not SENDER_EMAIL or not clean_password:
-        print("[-] ERROR: SENDER_EMAIL or SENDER_PASSWORD secret is missing or empty!")
+    if not clean_password:
+        print("[-] ERROR: SENDER_PASSWORD secret is missing or empty in GitHub Settings!")
         return
 
     # SMTP Connection via TLS (Port 587)
