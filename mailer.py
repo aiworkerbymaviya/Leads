@@ -142,20 +142,26 @@ def build_b2b_sales_email(client_name="there", is_test=False):
     return html_code
 
 def send_b2b_campaign(csv_file="leads.csv"):
-    if not SENDER_PASSWORD:
-        print("[-] ERROR: SENDER_PASSWORD secret missing!")
+    clean_password = SENDER_PASSWORD.replace(" ", "").strip() if SENDER_PASSWORD else ""
+
+    if not SENDER_EMAIL or not clean_password:
+        print("[-] ERROR: SENDER_EMAIL or SENDER_PASSWORD secret is missing or empty!")
         return
 
-    # SMTP Connection
+    # SMTP Connection via TLS (Port 587)
     try:
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-        server.login(SENDER_EMAIL, SENDER_PASSWORD)
-        print(f"[+] Authenticated with Gmail SMTP ({SENDER_EMAIL})")
+        print(f"[+] Connecting to Gmail SMTP via TLS Port 587 for {SENDER_EMAIL}...")
+        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=15)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.login(SENDER_EMAIL, clean_password)
+        print("[+] SUCCESS: Authenticated with Gmail SMTP!")
     except Exception as e:
         print(f"[-] SMTP Connection Failed: {e}")
         return
 
-    # STEP 1: Send Test Email to Yourself
+    # STEP 1: Send Test Email Preview
     print("\n[1/2] Sending Test Email Preview to Sender...")
     try:
         test_msg = MIMEMultipart("alternative")
@@ -169,9 +175,9 @@ def send_b2b_campaign(csv_file="leads.csv"):
     except Exception as e:
         print(f"[-] Failed to send test email: {e}")
 
-    # STEP 2: Send Email to All Saved Leads
+    # STEP 2: Send Email to Saved Leads
     if not os.path.exists(csv_file):
-        print(f"[-] ERROR: {csv_file} not found! Run search.py first if needed.")
+        print(f"[-] ERROR: {csv_file} not found!")
         server.quit()
         return
 
@@ -189,7 +195,6 @@ def send_b2b_campaign(csv_file="leads.csv"):
             if not email or "@" not in email:
                 continue
 
-            # Prevent Duplicate Emails
             if email in sent_history:
                 skipped_count += 1
                 continue
@@ -205,7 +210,7 @@ def send_b2b_campaign(csv_file="leads.csv"):
                 sent_count += 1
                 sent_history.add(email)
                 print(f"[✓] Sent [{sent_count}]: {name} ({email})")
-                time.sleep(2)  # Delay for spam protection
+                time.sleep(2)
             except Exception as e:
                 print(f"[-] Failed to send to {email}: {e}")
 
