@@ -1,4 +1,4 @@
-name: LeadFinder AI
+name: LeadFinder AI - Global Web Dev Leads
 
 on:
   workflow_dispatch:
@@ -9,23 +9,35 @@ jobs:
 
     strategy:
       fail-fast: false
-
       matrix:
         include:
-          - zone: western
+          # North America
+          - zone: us-pacific
+            url: https://download.geofabrik.de/north-america/us-pacific-latest.osm.pbf
+          - zone: us-northeast
+            url: https://download.geofabrik.de/north-america/us-northeast-latest.osm.pbf
+          - zone: us-south
+            url: https://download.geofabrik.de/north-america/us-south-latest.osm.pbf
+          - zone: canada
+            url: https://download.geofabrik.de/north-america/canada-latest.osm.pbf
+
+          # Europe
+          - zone: Great Britain
+            url: https://download.geofabrik.de/europe/great-britain-latest.osm.pbf
+          - zone: germany
+            url: https://download.geofabrik.de/europe/germany-latest.osm.pbf
+          - zone: france
+            url: https://download.geofabrik.de/europe/france-latest.osm.pbf
+
+          # Asia & Oceania
+          - zone: india-western
             url: https://download.geofabrik.de/asia/india/western-zone-latest.osm.pbf
-
-          - zone: eastern
-            url: https://download.geofabrik.de/asia/india/eastern-zone-latest.osm.pbf
-
-          - zone: northern
-            url: https://download.geofabrik.de/asia/india/northern-zone-latest.osm.pbf
-
-          - zone: southern
+          - zone: india-southern
             url: https://download.geofabrik.de/asia/india/southern-zone-latest.osm.pbf
+          - zone: australia
+            url: https://download.geofabrik.de/australia-oceania/australia-latest.osm.pbf
 
     steps:
-
       - name: 📥 Checkout
         uses: actions/checkout@v4
 
@@ -37,7 +49,7 @@ jobs:
       - name: 📦 Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install osmium pymongo certifi
+          pip install osmium pymongo certifi phonenumbers
 
       - name: 🌍 Download ${{ matrix.zone }}
         run: |
