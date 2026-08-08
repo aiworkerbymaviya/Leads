@@ -10,7 +10,7 @@ from pymongo import MongoClient
 PBF_FILE = os.getenv("PBF_FILE")
 MONGODB_URI = os.getenv("MONGODB_URI")
 
-# 1️⃣ STEP 1: Pehle Database Connection Test Karo
+# 1️⃣ STEP 1: Database Connection Setup
 print("=" * 60)
 print("🔌 Testing MongoDB Atlas Connection...")
 print("=" * 60)
@@ -38,45 +38,23 @@ except Exception as e:
     print("Please check your MONGODB_URI secret and Network Access (0.0.0.0/0).\n")
     exit(1)
 
-# 🎯 NEW MULTI-CATEGORY TARGETS (Removed Old Restro/Cafe)
+# 🎯 REAL ESTATE TARGET TAGS ONLY
 TARGETS = {
-    # 1. Healthcare & Clinics
-    ("amenity", "clinic"),
-    ("amenity", "dentist"),
-    ("amenity", "doctors"),
-    ("amenity", "hospital"),
-    
-    # 2. Hospitality & Stay
-    ("tourism", "hotel"),
-    ("tourism", "guest_house"),
-    ("tourism", "resort"),
-    ("tourism", "hostel"),
-    
-    # 3. Real Estate & Design
+    # Primary Real Estate Offices & Agents
     ("office", "real_estate"),
-    ("office", "interior_design"),
+    ("office", "estate_agent"),
+    ("office", "property_management"),
+    ("office", "housing_association"),
+    
+    # Developers, Builders & Architects
+    ("office", "builder"),
+    ("office", "developer"),
     ("office", "architect"),
+    ("office", "interior_design"),
     
-    # 4. Salons, Spas & Gyms
-    ("shop", "beauty"),
-    ("shop", "hairdresser"),
-    ("leisure", "spa"),
-    ("leisure", "fitness_centre"),
-    ("leisure", "sports_centre"),
-    
-    # 5. Automotive & Garages
-    ("shop", "car_repair"),
-    ("shop", "car_parts"),
-    ("shop", "motorcycle_repair"),
-    
-    # 6. Events & Photographers
-    ("craft", "photographer"),
-    ("shop", "photo"),
-    
-    # 7. Education & Coaching
-    ("amenity", "coaching"),
-    ("amenity", "school"),
-    ("amenity", "college")
+    # Land & Property Services
+    ("shop", "real_estate"),
+    ("amenity", "real_estate_agency")
 }
 
 stats = defaultdict(int)
@@ -101,13 +79,13 @@ class BusinessHandler(osmium.SimpleHandler):
         self.nodes_scanned = 0
         self.start = time.time()
         self.buffer = []
-        self.seen_leads = set()  # Key: Phone + Name (Option A)
+        self.seen_leads = set()  # Key: Phone + Name
         self.estimated_total_nodes = 100_000_000 
 
     def node(self, n):
         self.nodes_scanned += 1
 
-        # Live Progress Updates
+        # Live Progress Updates every 500,000 nodes
         if self.nodes_scanned % 500000 == 0:
             elapsed = time.time() - self.start
             speed = self.nodes_scanned / elapsed if elapsed > 0 else 0
@@ -124,7 +102,7 @@ class BusinessHandler(osmium.SimpleHandler):
 
         tags = n.tags
         
-        # Check matching target category
+        # Check matching target category for Real Estate
         matched_category = None
         for key, val in TARGETS:
             if tags.get(key) == val:
@@ -146,7 +124,7 @@ class BusinessHandler(osmium.SimpleHandler):
                 stats["Invalid Phone Skipped"] += 1
                 return
 
-            # OPTION A: Unique Key = Phone + Name
+            # Unique Key = Phone + Name
             unique_key = f"{phone}_{name.lower().strip()}"
 
             if unique_key in self.seen_leads:
@@ -170,7 +148,8 @@ class BusinessHandler(osmium.SimpleHandler):
                 "phone": phone,
                 "lat": lat,
                 "lon": lon,
-                "category": matched_category
+                "category": matched_category,
+                "industry": "Real Estate"
             }
 
             self.buffer.append(lead)
@@ -196,10 +175,10 @@ class BusinessHandler(osmium.SimpleHandler):
 
 
 print("=" * 60)
-print("🚀 LeadFinder AI - DB Scanner")
+print("🚀 LeadFinder AI - Real Estate DB Scanner")
 print("=" * 60)
 print(f"📂 File : {PBF_FILE}")
-print("🔍 Filtering Leads (Phone = YES | Website = NO)...")
+print("🔍 Filtering Real Estate Leads (Phone = YES | Website = NO)...")
 print("=" * 60)
 
 handler = BusinessHandler()
@@ -209,7 +188,7 @@ handler.flush()
 elapsed = time.time() - handler.start
 
 print("\n" + "=" * 60)
-print("✅ SCAN & SAVED TO MONGO COMPLETED")
+print("✅ REAL ESTATE SCAN & SAVED TO MONGO COMPLETED")
 print("=" * 60)
 print(f"🎯 Total Leads Saved  : {stats['Target Leads']:,}")
 print(f"⚠️ Duplicates Skipped : {stats['Duplicates Skipped']:,}")
