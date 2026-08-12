@@ -338,5 +338,25 @@
         "source": "GitHub",
         "profile_url": "https://github.com/jenni-software",
         "date_extracted": "2026-08-07"
+    },
+    {
+        "id": 160388886,
+        "name": "Sandy Chaudhary",
+        "email": "developer.sandychaudhary@gmail.com",
+        "role": "frontend developer freelancer",
+        "location": "India",
+        "source": "GitHub",
+        "profile_url": "https://github.com/webdevSandy",
+        "date_extracted": "2026-08-12"
+    },
+    {
+        "id": 185908135,
+        "name": "Anil Rasuri",
+        "email": "anilrasuri17@gmail.com",
+        "role": "fresher web developer",
+        "location": "Nirmal, Telangana, India",
+        "source": "GitHub",
+        "profile_url": "https://github.com/Anil-Rasuri",
+        "date_extracted": "2026-08-12"
     }
 ]
