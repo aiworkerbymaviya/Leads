@@ -358,5 +358,15 @@
         "source": "GitHub",
         "profile_url": "https://github.com/Anil-Rasuri",
         "date_extracted": "2026-08-12"
+    },
+    {
+        "id": 181190695,
+        "name": "Gopal Navetia",
+        "email": "work.gopalnavetia@gmail.com",
+        "role": "fresher web developer",
+        "location": "Delhi, India",
+        "source": "GitHub",
+        "profile_url": "https://github.com/GopalNavetia",
+        "date_extracted": "2026-09-04"
     }
 ]
